@@ -6,8 +6,6 @@ from copy import deepcopy
 from tqdm import tqdm
 from time import time
 
-
-
 def make_safe_filename(s):
     def safe_char(c):
         if c.isalnum():
@@ -38,7 +36,7 @@ class MessageContextException(Exception):
     """
     pass
 
-class LLMCoderResults():
+class LLM_Result():
     """A class that holds the output and some metadata from an LLM."""
     def __init__(self,
                  input_text: str,
@@ -56,7 +54,7 @@ class LLMCoderResults():
         return
 
 
-class LLMCoder():
+class Pleonast():
     """The main class for having an LLM generate a response to individual texts that you pass to it in a systematic fashion."""
 
     def __init__(self,
@@ -113,7 +111,7 @@ class LLMCoder():
                                               return_full_text=False
                                               )
 
-        print("LLM Coder is initialized.")
+        print("Pleonast is initialized.")
         return
 
     def _buildPrompt(self, input_text: str) -> list:
@@ -164,11 +162,11 @@ class LLMCoder():
 
         stop_time = time()
 
-        self.result = LLMCoderResults(input_text=input_text,
-                                      response_text=response_text,
-                                      model_output=LLM_result[0],
-                                      start_time=start_time,
-                                      stop_time=stop_time)
+        self.result = LLM_Result(input_text=input_text,
+                                 response_text=response_text,
+                                 model_output=LLM_result[0],
+                                 start_time=start_time,
+                                 stop_time=stop_time)
 
         return
 

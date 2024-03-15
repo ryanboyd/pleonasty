@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 name = "pleonasty"
 
-version = "0.0.1"
+version = "0.0.2"
 
 authors = [
   { name="Ryan L. Boyd", email="ryan@ryanboyd.io" },
@@ -36,6 +36,6 @@ classifiers = [
 
 [project.urls]
 
-Homepage = ""
+Homepage = "https://github.com/ryanboyd/pleonasty"
 
-Issues = ""
+Issues = "https://github.com/ryanboyd/pleonasty/issues"
