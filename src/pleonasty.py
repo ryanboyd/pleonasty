@@ -172,8 +172,8 @@ class Pleonast():
 
     def batch_analyze_to_csv(self,
                              texts: list,
-                             text_metadata: dict,
-                             csv_output_location: str,
+                             text_metadata: dict = {},
+                             csv_output_location: str = "AnalysisResults.csv",
                              append_to_existing_csv: bool = False,
                              output_encoding: str = "utf-8-sig",
                              max_seq_length: int = 4096,
