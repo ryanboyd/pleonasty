@@ -157,3 +157,4 @@ testdata/
 context_examples_other/
 *.bat
 example_notebook_private.ipynb
+example_notebook_private - motives test.ipynb
