@@ -140,7 +140,9 @@ class Pleonast():
             top_k=top_k,
             num_return_sequences=1,
             eos_token_id=self.tokenizer.eos_token_id,
-            max_length=max_seq_length)
+            pad_token_id=self.tokenizer.eos_token_id,
+            max_length=max_seq_length,
+        )
 
         return sequences
 
@@ -334,7 +336,9 @@ class Pleonast():
                 raise MessageContextException("""Your prompt set need to be contained in dictionaries.
                          Each dictionary must have both a "role" and "content" key.""")
 
-        return self.tokenizer.apply_chat_template(prompt_messages,  tokenize=False)
+        return self.tokenizer.apply_chat_template(prompt_messages, 
+                                                  tokenize=False,
+                                                  add_generation_prompt=True)
 
 
 
