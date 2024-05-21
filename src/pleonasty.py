@@ -144,6 +144,7 @@ class Pleonast():
             eos_token_id=self.tokenizer.eos_token_id,
             pad_token_id=self.tokenizer.eos_token_id,
             max_length=max_seq_length,
+            truncation=True
         )
 
         return sequences
