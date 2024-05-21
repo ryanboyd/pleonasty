@@ -185,6 +185,10 @@ class Pleonast():
                              top_k: int = 10,
                              ) -> None:
 
+        if not os.path.exists(os.path.dirname(os.path.abspath(csv_output_location))):
+            os.makedirs(os.path.dirname(os.path.abspath(csv_output_location)))
+            
+
         writemode = 'w'
         if append_to_existing_csv:
             writemode = 'a'
