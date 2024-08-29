@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 name = "pleonasty"
 
-version = "0.0.9"
+version = "0.1.0"
 
 authors = [
   { name="Ryan L. Boyd", email="ryan@ryanboyd.io" },
