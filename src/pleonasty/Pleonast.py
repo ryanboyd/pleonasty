@@ -26,13 +26,6 @@ class LLMFormats():
     llama2 = InstructionFormat(instruction_format="""<s>[INST] <<SYS>>\n{SYSTEM_MESSAGE}\n<</SYS>>\n\n{USER_MESSAGE} [/INST]""",
                                final_delimiter="[/INST]")
 
-class MessageContextException(Exception):
-    """
-    Custom exception type to be thrown when user is trying to set context but something goes wrong
-    """
-    pass
-
-
 
 class Pleonast:
     """The main class for having an LLM generate a response to individual texts that you pass to it in a systematic fashion."""

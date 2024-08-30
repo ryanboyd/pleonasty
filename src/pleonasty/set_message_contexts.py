@@ -1,5 +1,13 @@
 import csv
 
+
+class MessageContextException(Exception):
+    """
+    Custom exception type to be thrown when user is trying to set context but something goes wrong
+    """
+    pass
+
+
 def set_message_context(self, prompt_messages: list) -> None:
     """
     Sets the "context" for all messages that will be submitted to your LLM. This is essentially just the prompt
