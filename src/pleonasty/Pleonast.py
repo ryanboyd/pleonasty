@@ -1,5 +1,6 @@
 import torch
 import transformers
+from transformers import BitsAndBytesConfig, AutoModelForCausalLM, AutoTokenizer, pipeline
 
 def make_safe_filename(s):
     def safe_char(c):
@@ -34,83 +35,94 @@ class MessageContextException(Exception):
 
 
 
-class Pleonast():
+import torch
+import transformers
+from transformers import BitsAndBytesConfig, AutoModelForCausalLM, AutoTokenizer, pipeline
+
+class Pleonast:
     """The main class for having an LLM generate a response to individual texts that you pass to it in a systematic fashion."""
 
     def __init__(self,
-                 quantize_model: bool,
                  model: str,
-                 tokenizer: str,
-                 offload_folder: str,
-                 hf_token: str = None
-                 ):
-
+                 tokenizer: str = None,
+                 quantize_model: bool = False,
+                 offload_folder: str = None,
+                 hf_token: str = None):
         self.model_name_str = model
-        self.tokenizer_name_str = tokenizer
-        self.result = None
-        self.message_context = []
+        self.tokenizer_name_str = tokenizer if tokenizer else model
+        self.hf_token = hf_token
+        self.offload_folder = offload_folder
 
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
             torch.set_default_device("cuda")
+            self.device = "cuda"
+        else:
+            self.device = "cpu"
 
-        if quantize_model:
-
-            try:
-
-                quantization_config = transformers.BitsAndBytesConfig(load_in_8bit=True,
-                                                                      llm_int8_threshold=200.0)
-                self.model = transformers.AutoModelForCausalLM.from_pretrained(
-                    pretrained_model_name_or_path=model,
-                    device_map="auto",
-                    quantization_config=quantization_config,
-                    token=hf_token
-                )
-            except:
-                quantize_model = False
-                print("Unable to quantize model. Trying to continue with non-quantized model...")
-
-        if not quantize_model:
-            if offload_folder is None:
-                self.model = transformers.AutoModelForCausalLM.from_pretrained(
-                    pretrained_model_name_or_path=model,
-                    device_map="auto",
-                    token=hf_token)
-            else:
-                self.model = transformers.AutoModelForCausalLM.from_pretrained(
-                    pretrained_model_name_or_path=model,
-                    device_map="auto",
-                    offload_folder=offload_folder,
-                    token=hf_token)
-
-
-        self.tokenizer = transformers.AutoTokenizer.from_pretrained(
-            pretrained_model_name_or_path=tokenizer,
-            use_fast=True,
-            token=hf_token
-        )
-
-        self.pipeline = transformers.pipeline(task="text-generation",
-                                              model=self.model,
-                                              tokenizer=self.tokenizer,
-                                              torch_dtype=torch.float16,
-                                              device_map="auto",
-                                              return_full_text=False
-                                              )
+        self.model = self._load_model(quantize_model)
+        self.tokenizer = self._load_tokenizer()
+        self._pipeline = None  # Pipeline will be lazily loaded
 
         print("Pleonast is initialized.")
-        return
 
+    def _load_model(self, quantize_model: bool):
+        try:
+            if quantize_model:
+                if self.device != "cuda":
+                    raise ValueError("No GPU found. A GPU is needed for quantization.")
+                
+                quantization_config = BitsAndBytesConfig(load_in_8bit=True, llm_int8_threshold=200.0)
+                model = AutoModelForCausalLM.from_pretrained(
+                    pretrained_model_name_or_path=self.model_name_str,
+                    device_map="auto",
+                    quantization_config=quantization_config,
+                    token=self.hf_token
+                )
+            else:
+                model = AutoModelForCausalLM.from_pretrained(
+                    pretrained_model_name_or_path=self.model_name_str,
+                    device_map="auto",
+                    offload_folder=self.offload_folder if self.offload_folder else None,
+                    token=self.hf_token
+                )
+            return model
+        except Exception as e:
+            print(f"Error loading model: {e}")
+            raise
 
+    def _load_tokenizer(self):
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(
+                pretrained_model_name_or_path=self.tokenizer_name_str,
+                use_fast=True,
+                token=self.hf_token
+            )
+            return tokenizer
+        except Exception as e:
+            print(f"Error loading tokenizer: {e}")
+            raise
 
-# some potential stuff for parsing jsons
-#import ast
-#import json
-#from pprint import pprint
+    @property
+    def pipeline(self):
+        if self._pipeline is None:
+            try:
+                self._pipeline = pipeline(
+                    task="text-generation",
+                    model=self.model,
+                    tokenizer=self.tokenizer,
+                    torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
+                    device_map="auto",
+                    return_full_text=False
+                )
+            except Exception as e:
+                print(f"Error initializing pipeline: {e}")
+                raise
+        return self._pipeline
 
-#result_str_list = ast.literal_eval(result[0]["generated_text"].split("<|im_start|>assistant\n")[-1].strip().split(',\n\n') + "]}")
-#result_dict_list = [json.loads(x) for x in result_str_list]
-
-#for item in result_dict_list:
-#  pprint(item)
-#  print('\n\n')
+    def generate(self, input_text, **kwargs):
+        try:
+            return self.pipeline(input_text, **kwargs)
+        except Exception as e:
+            print(f"Error during text generation: {e}")
+            raise
