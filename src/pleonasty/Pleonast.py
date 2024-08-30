@@ -34,11 +34,6 @@ class MessageContextException(Exception):
 
 
 
-
-import torch
-import transformers
-from transformers import BitsAndBytesConfig, AutoModelForCausalLM, AutoTokenizer, pipeline
-
 class Pleonast:
     """The main class for having an LLM generate a response to individual texts that you pass to it in a systematic fashion."""
 
