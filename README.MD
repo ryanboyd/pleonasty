@@ -10,7 +10,7 @@ The easiest way to get up and running with `pleonasty` is to install via `pip`, 
 
 ```pip install pleonasty```
 
-Note that, in order to use this package, you will already need to have your CUDA environment properly configured if you plan to use a GPU for accelerated inference. This includes having the appropriate version of PyTorch installed with CUDA support.
+Note that, in order to use this package, you will already need to have your CUDA environment properly configured if you plan to use a GPU for accelerated inference. This includes having the appropriate version of [PyTorch installed with CUDA support](https://pytorch.org/get-started/locally/).
 
 To use pleonasty, ensure you have the following installed:
 
