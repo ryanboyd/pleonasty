@@ -11,7 +11,7 @@ def chat_mode(self, max_length: int = 1000, top_k: int = 10, temperature: float 
     step = 0
     while True:
         # take user input
-        text = input(">> You:")
+        text = input(">> You: ")
 
         if text.strip() == "quit":
             print("Exiting chat mode...")
