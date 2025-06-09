@@ -12,21 +12,6 @@ def make_safe_filename(s):
     return "".join(safe_char(c) for c in s).rstrip("_")
 
 
-# These two classes might end up being vestigial given that the transformers package already has chat templates.
-# They are being kept for now, but will probably be dropped later.
-class InstructionFormat():
-    def __init__(self, instruction_format: str, final_delimiter: str):
-        self.instruction_format = instruction_format
-        self.final_delimiter = final_delimiter
-        return
-
-class LLMFormats():
-    orca2 = InstructionFormat(instruction_format="<|im_start|>system\n{SYSTEM_MESSAGE}<|im_end|>\n<|im_start|>user\n{USER_MESSAGE}<|im_end|>\n<|im_start|>assistant",
-                              final_delimiter="<|im_start|>assistant\n")
-    llama2 = InstructionFormat(instruction_format="""<s>[INST] <<SYS>>\n{SYSTEM_MESSAGE}\n<</SYS>>\n\n{USER_MESSAGE} [/INST]""",
-                               final_delimiter="[/INST]")
-
-
 class Pleonast:
     """The main class for having an LLM generate a response to individual texts that you pass to it in a systematic fashion."""
 
@@ -56,24 +41,20 @@ class Pleonast:
 
     def _load_model(self, quantize_model: bool):
         try:
+            kwargs = {
+                "pretrained_model_name_or_path": self.model_name_str,
+                "device_map": "auto",
+                "offload_folder": self.offload_folder if self.offload_folder else None,
+                "torch_dtype": torch.float16,
+                "trust_remote_code": True,  # Needed for many new/large models
+                "token": self.hf_token,
+            }
             if quantize_model:
                 if self.device != "cuda":
                     raise ValueError("No GPU found. A GPU is needed for quantization.")
-                
-                quantization_config = BitsAndBytesConfig(load_in_8bit=True, llm_int8_threshold=200.0)
-                model = AutoModelForCausalLM.from_pretrained(
-                    pretrained_model_name_or_path=self.model_name_str,
-                    device_map="auto",
-                    quantization_config=quantization_config,
-                    token=self.hf_token
-                )
-            else:
-                model = AutoModelForCausalLM.from_pretrained(
-                    pretrained_model_name_or_path=self.model_name_str,
-                    device_map="auto",
-                    offload_folder=self.offload_folder if self.offload_folder else None,
-                    token=self.hf_token
-                )
+                kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True, llm_int8_threshold=200.0)
+            model = AutoModelForCausalLM.from_pretrained(**kwargs)
+            print("Device map:", model.hf_device_map)
             return model
         except Exception as e:
             print(f"Error loading model: {e}")
@@ -100,7 +81,6 @@ class Pleonast:
                     model=self.model,
                     tokenizer=self.tokenizer,
                     torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-                    device_map="auto",
                     return_full_text=False
                 )
             except Exception as e:
