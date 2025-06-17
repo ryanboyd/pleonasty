@@ -49,5 +49,26 @@ class Pleonast:
                 token=self.hf_token
             )
 
-
         print("Pleonast is initialized.")
+    
+    def chunk_by_tokens(self, text: str, chunk_size: int):
+        # Ask for the offsets of each token in the original text
+        enc = self.tokenizer(
+            text,
+            add_special_tokens=False,
+            return_offsets_mapping=True,
+        )
+        ids     = enc["input_ids"]
+        offsets = enc["offset_mapping"]  # list of (start_char, end_char)
+
+        out = []
+        for i in range(0, len(ids), chunk_size):
+            j = min(i + chunk_size, len(ids))
+            start_char = offsets[i][0]
+            end_char   = offsets[j - 1][1]
+            substring  = text[start_char:end_char]
+            out.append({
+                "input_ids": ids[i:j],
+                "text":       substring
+            })
+        return out
