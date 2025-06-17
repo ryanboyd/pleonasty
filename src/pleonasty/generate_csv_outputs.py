@@ -1,3 +1,5 @@
+from .LLM_Result import LLM_Result
+
 def generate_csv_header(self, metadata_headers: list):
     """
     Helper function to generate a CSV header
@@ -8,14 +10,17 @@ def generate_csv_header(self, metadata_headers: list):
     mh.extend(["text", "Input_WC", "LLM_Response"])
     return mh
 
-def generate_csv_output_row(self, input_metadata: list) -> list:
+def generate_csv_output_row(self,
+                            result: LLM_Result,
+                            input_metadata: list) -> list:
     """
     Generates a row of output for a CSV file by concatenating metadata columns with the LLM output columns.
+    :param result:
     :param input_metadata:
     :return:
     """
     row_results = []
     row_results.extend(input_metadata)
-    row_results.extend([self.result.input_text, self.result.WC, self.result.response_text])
+    row_results.extend([result.input_text, result.WC, result.response_text])
 
     return row_results

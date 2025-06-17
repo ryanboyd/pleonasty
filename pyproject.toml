@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 name = "pleonasty"
 
-version = "0.1.2"
+version = "0.3.0"
 
 authors = [
 	{ name="Ryan L. Boyd", email="ryan@ryanboyd.io" },
@@ -21,11 +21,8 @@ readme = "README.MD"
 
 requires-python = ">=3.10"
 
-dependencies=["tqdm>=4.66.5",
-				"transformers>=4.44.2",
-				"accelerate>=0.33.0",
-				"sentencepiece>=0.2.0",
-				"protobuf>=5.28.0"]
+dependencies=["vllm>=0.9.1",
+				"bitsandbytes>=0.46.0"]
 
 classifiers = [
 	"Programming Language :: Python :: 3",

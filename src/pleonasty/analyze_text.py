@@ -1,30 +1,45 @@
 from .LLM_Result import LLM_Result
 from time import time
+from vllm import SamplingParams
 
 def analyze_text(self,
-                 input_text: str,
-                 max_seq_length: int = 4096,
-                 temperature: float = 0.3,
-                 top_k: int = 10):
+                 input_texts: list,
+                 **sampling_params) -> list[LLM_Result]:
 
     start_time = time()
 
-    #print(self.message_context)
+    # 1) Build one chat-conversation per input
+    conversations = []
+    for input_text in input_texts:
+        # your _buildPrompt can still be used to shape the user turn
+        conversation_history = self._buildPrompt(input_text)
+        conversations.append(conversation_history)
 
-    LLM_result = self.process_text(prompt_messages=self._buildPrompt(input_text),
-                                   max_seq_length=max_seq_length,
-                                   temperature=temperature,
-                                   top_k=top_k)
+    # 2) Wrap the sampling params
+    sampling = SamplingParams(**sampling_params)
 
-    #response_text = LLM_result[0]["generated_text"].split(self.llm_format.final_delimiter)[-1].strip()
-    response_text = LLM_result[0]["generated_text"].strip()
-
+    # 3) Run vLLM's chat API
+    outputs = self.llm.chat(
+        messages=conversations,
+        add_generation_prompt=True,
+        use_tqdm=False,
+        sampling_params=sampling
+    )
     stop_time = time()
 
-    self.result = LLM_Result(input_text=input_text,
-                             response_text=response_text,
-                             model_output=LLM_result[0],
-                             start_time=start_time,
-                             stop_time=stop_time)
+    # 4) Collect just the assistant's reply
+    llm_results = []
+    for input_text, output in zip(input_texts, outputs):
+        reply = output.outputs[0].text.strip()
+        llm_results.append(
+            LLM_Result(
+                input_text=input_text,
+                response_text=reply,
+                model_output=output,
+                start_time=start_time,
+                stop_time=stop_time
+            )
+        )
 
-    return
+    self.result = llm_results
+    return llm_results

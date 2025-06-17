@@ -1,40 +1,50 @@
-import torch
-import transformers
+from vllm import SamplingParams
 
-def chat_mode(self, max_length: int = 1000, top_k: int = 10, temperature: float = .75, bot_name: str = "Bot") -> None:
+def chat_mode(self,
+              temperature: float = 0.75,
+              top_k: int = 10,
+              max_tokens: int = 1000,
+              bot_name: str = "Bot",
+              system_prompt: str = "You are a helpful AI assistant."
+            ):
+    
+    # 1) Set up params
+    params = {
+    "temperature": temperature,
+    "top_k":        top_k,
+    "max_tokens":   max_tokens,
+}
+    
+    # 2) Build a SamplingParams object
+    sampling_params = SamplingParams(**params)
 
-    # just disabling all warnings for now, as there appear to be many warnings that are not relevant
-    transformers.logging.set_verbosity_error()
+    # 3) Start chat loop
+    print("Type 'quit' to exit chat mode.")
+    # Seed with an optional system prompt
+    history = [
+        {"role": "system", "content": system_prompt}
+    ]
 
-    print("Type 'quit' (without the quotes) to exit chat mode.")
-    text = ""
-    step = 0
     while True:
-        # take user input
-        text = input(">> You: ")
-
-        if text.strip() == "quit":
+        user_input = input(">> You: ")
+        if user_input.strip().lower() == "quit":
             print("Exiting chat mode...")
             break
 
-        # encode the input and add end of string token
-        input_ids = self.tokenizer.encode(text + self.tokenizer.eos_token, return_tensors="pt")
-        # concatenate new user input with chat history (if there is)
-        bot_input_ids = torch.cat([chat_history_ids, input_ids], dim=-1) if step > 0 else input_ids
-        step += 1
-        # generate a bot response
-        chat_history_ids = self.model.generate(
-            bot_input_ids,
-            max_length=max_length,
-            do_sample=True,
-            top_k=top_k,
-            temperature=temperature,
-            pad_token_id=self.tokenizer.eos_token_id,
+        # 4) Append user turn
+        history.append({"role": "user", "content": user_input})
+
+        # 5) Call vLLM’s chat API
+        outputs = self.llm.chat(
+            messages=[history],               # one conversation in a batch
+            add_generation_prompt=True,        # ensure an “assistant:” token is appended
+            use_tqdm=False,
+            sampling_params=sampling_params
         )
-        #print the output
-        output = self.tokenizer.decode(chat_history_ids[:, bot_input_ids.shape[-1]:][0],
-                                       skip_special_tokens=True)
-        print(f"\r\n{bot_name}: {output.strip('assistant').strip()}\r\n")
-    
-    transformers.logging.set_verbosity_info()
-    return
+
+        # 6) Extract and print the assistant’s reply
+        reply = outputs[0].outputs[0].text.strip()
+        print(f"\n{bot_name}: {reply}\n")
+
+        # 7) Append assistant turn so it’s included in the next round
+        history.append({"role": "assistant", "content": reply})
