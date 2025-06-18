@@ -67,8 +67,5 @@ class Pleonast:
             start_char = offsets[i][0]
             end_char   = offsets[j - 1][1]
             substring  = text[start_char:end_char]
-            out.append({
-                "input_ids": ids[i:j],
-                "text":       substring
-            })
+            out.append(substring)
         return out

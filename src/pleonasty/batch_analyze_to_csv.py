@@ -8,7 +8,7 @@ def batch_analyze_to_csv(self,
                          output_csv: str = "AnalysisResults.csv",
                          append_to_existing_csv: bool = False,
                          output_csv_encoding: str = "utf-8-sig",
-                         max_words_per_chunk: int = 2000,
+                         chunk_into_n_tokens: int = 2000,
                          **sampling_params
                          ) -> None:
 
@@ -31,8 +31,11 @@ def batch_analyze_to_csv(self,
 
         for i in tqdm(range(len(texts))):
 
-            results = self.analyze_text(input_texts=[texts[i]],
-                              **sampling_params)
+            chunked_text = self.chunk_by_tokens(text=texts[i],
+                                                    chunk_size=chunk_into_n_tokens)
+
+            results = self.analyze_text(input_texts=chunked_text,
+                                        **sampling_params)
 
             # prep the row output with metadata
             meta_output = []

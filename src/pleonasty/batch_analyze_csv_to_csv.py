@@ -10,7 +10,7 @@ def batch_analyze_csv_to_csv(self,
                          output_csv: str = "AnalysisResults.csv",
                          append_to_existing_csv: bool = False,
                          file_encoding: str = "utf-8-sig",
-                         max_words_per_chunk: int = 2000,
+                         chunk_into_n_tokens: int = 2000,
                          **sampling_params) -> None:
 
     """
@@ -112,7 +112,10 @@ def batch_analyze_csv_to_csv(self,
 
                 # do the actual generation. the result gets saves as a list of LLM_Result()
                 # to self.result for the Pleonast class
-                results = self.analyze_text(input_texts=[text_to_process],
+                chunked_text = self.chunk_by_tokens(text=text_to_process,
+                                                    chunk_size=chunk_into_n_tokens)
+
+                results = self.analyze_text(input_texts=chunked_text,
                                             **sampling_params)
 
                 # prep the row output with metadata
