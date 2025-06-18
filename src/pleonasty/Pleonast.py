@@ -1,7 +1,7 @@
 import csv
 import sys
 from transformers import AutoTokenizer
-from vllm import LLM, SamplingParams
+from vllm import LLM
 
 csv.field_size_limit(sys.maxsize)
 
@@ -43,11 +43,7 @@ class Pleonast:
 
         self.llm = LLM(**llm_init_kwargs)
         
-        self.tokenizer = AutoTokenizer.from_pretrained(
-                pretrained_model_name_or_path=self.tokenizer_name_str,
-                use_fast=True,
-                token=self.hf_token
-            )
+        self.tokenizer = self.llm.get_tokenizer()
 
         print("Pleonast is initialized.")
     
@@ -67,5 +63,5 @@ class Pleonast:
             start_char = offsets[i][0]
             end_char   = offsets[j - 1][1]
             substring  = text[start_char:end_char]
-            out.append(substring)
+            out.append(substring.strip())
         return out
