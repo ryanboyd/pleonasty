@@ -1,6 +1,6 @@
-# Pleonast
+# Pleonasty
 
-Pleonast is a Python library built on top of [vLLM](https://github.com/vllm-project/vllm) and Hugging Face Transformers that streamlines batch annotation, analysis, and interactive chat with large language models. It makes it easy to apply the same prompt or system instructions to hundreds or thousands of texts and save results in CSV form, or to start an interactive chat loop for ad-hoc experimentation.
+Pleonasty is a Python library built on top of [vLLM](https://github.com/vllm-project/vllm) and Hugging Face Transformers that streamlines batch annotation, analysis, and interactive chat with large language models. It makes it easy to apply the same prompt or system instructions to hundreds or thousands of texts and save results in CSV form, or to start an interactive chat loop for ad-hoc experimentation.
 
 ## Key Features
 
@@ -22,7 +22,7 @@ pip install pleonast
 * PyTorch with CUDA support (if using GPU inference)
 * vLLM v0.9.1+
 
-Set environment variables **before** importing `pleonast` or `vllm` if you need custom cache locations:
+Set environment variables **before** importing `pleonasty` or `vllm` if you need custom cache locations:
 
 ```bash
 # Hugging Face cache (models, tokenizers):
