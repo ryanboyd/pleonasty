@@ -1,6 +1,28 @@
 import csv
+import sys
 import os.path
 from tqdm import tqdm
+
+def set_csv_field_limit():
+    limit = sys.maxsize
+    while True:
+        try:
+            csv.field_size_limit(limit)
+            break
+        except OverflowError:
+            limit //= 2
+            if limit < 128 * 1024 * 1024:  # don’t go below ~128MB
+                csv.field_size_limit(128 * 1024 * 1024)
+                break
+
+set_csv_field_limit()
+
+def _clean_lines(iterable, drop_nul=True):
+    """Yield sanitized text lines for csv.reader."""
+    for line in iterable:
+        if drop_nul and '\x00' in line:
+            line = line.replace('\x00', '')
+        yield line
 
 def batch_analyze_csv_to_csv(self,
                          input_csv: str,
@@ -47,7 +69,7 @@ def batch_analyze_csv_to_csv(self,
     print("Checking input file integrity and counting the number of rows...")
     numRows = 0
     with open(input_csv, 'r', encoding=file_encoding) as fin:
-        csvr = csv.reader(fin)
+        csvr = csv.reader(_clean_lines(fin))
 
         if useFileHeader:
             header_row = csvr.__next__()
@@ -62,6 +84,8 @@ def batch_analyze_csv_to_csv(self,
         # Also, double-check that the user-specified indices are found in the data
         for line in csvr:
             numRows += 1
+            if numRows % 100000 == 0:
+                print(f"Counted {numRows} rows so far...", flush=True)
             if not useFileHeader:
                 if index_boundaries["min"] < 0 or index_boundaries["max"] > len(line):
                     print(f"At least one of your column indices is outside of the range of columns in your dataset: Row {numRows}")
@@ -73,7 +97,7 @@ def batch_analyze_csv_to_csv(self,
     print("Beginning analysis...")
 
     with open(input_csv, 'r', encoding=file_encoding) as fin:
-        csvr = csv.reader(fin)
+        csvr = csv.reader(_clean_lines(fin))
 
         column_indices_to_process = []
         column_indices_for_metadata = []
