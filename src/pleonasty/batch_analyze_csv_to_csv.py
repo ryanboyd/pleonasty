@@ -84,7 +84,7 @@ def batch_analyze_csv_to_csv(self,
         # Also, double-check that the user-specified indices are found in the data
         for line in csvr:
             numRows += 1
-            if numRows % 100000 == 0:
+            if numRows % 1000000 == 0:
                 print(f"Counted {numRows} rows so far...", flush=True)
             if not useFileHeader:
                 if index_boundaries["min"] < 0 or index_boundaries["max"] > len(line):
