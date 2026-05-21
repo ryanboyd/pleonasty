@@ -78,7 +78,7 @@ def _aggregate(value_lists: dict, fields: list) -> dict:
 
 def parse_json_output(
     input_csv: str,
-    json_fields: list,
+    json_fields: list = None,
     output_csv: str = None,
     response_column: str = "LLM_Response",
     group_by=None,
@@ -93,8 +93,11 @@ def parse_json_output(
     input_csv : str
         Path to a CSV file produced by batch_analyze_to_csv or
         batch_analyze_csv_to_csv.
-    json_fields : list[str]
+    json_fields : list[str], optional
         JSON keys to extract from each LLM response (case-insensitive).
+        If omitted, the keys are discovered automatically from the first
+        successfully parsed response and the union of all keys seen across
+        all rows is used.
     output_csv : str, optional
         Where to write the result.  Defaults to <input_stem>_parsed.csv.
     response_column : str
@@ -130,8 +133,6 @@ def parse_json_output(
     if isinstance(group_by, str):
         group_by = [group_by]
 
-    fields = [f.lower() for f in json_fields]
-
     # ── read ───────────────────────────────────────────────────────────────────
     with open(input_csv, 'r', encoding=encoding) as fin:
         reader = csv.DictReader(fin)
@@ -162,6 +163,23 @@ def parse_json_output(
         parsed_dicts.append(d)
 
     print(f"JSON parsing: {n_ok} succeeded, {n_fail} failed.")
+
+    # ── discover fields if not supplied ────────────────────────────────────────
+    if json_fields is None:
+        seen = {}  # preserves insertion order while deduplicating
+        for d in parsed_dicts:
+            for k in d:
+                seen[k] = None
+        if not seen:
+            raise ValueError(
+                "No JSON could be parsed from any row — cannot auto-discover "
+                "fields. Check that the LLM responses contain JSON objects, or "
+                "pass json_fields explicitly."
+            )
+        fields = list(seen.keys())
+        print(f"Auto-discovered JSON fields: {fields}")
+    else:
+        fields = [f.lower() for f in json_fields]
 
     # ── assemble output ────────────────────────────────────────────────────────
     if group_by:
