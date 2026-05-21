@@ -16,6 +16,9 @@ def analyze_text(self,
     if {"temperature", "top_k", "top_p"} & set(generation_kwargs):
         generation_kwargs.setdefault("do_sample", True)
 
+    # Suppress the per-call transformers log about pad_token_id
+    generation_kwargs.setdefault("pad_token_id", self.tokenizer.pad_token_id)
+
     llm_results = []
 
     for input_text in input_texts:

@@ -32,6 +32,7 @@ def chat_mode(self,
                 temperature=temperature,
                 top_k=top_k,
                 do_sample=True,
+                pad_token_id=self.tokenizer.pad_token_id,
             )
 
         new_tokens = output_ids[0][input_len:]

@@ -1,8 +1,12 @@
 import csv
 import sys
+import warnings
 import torch
 from pathlib import Path
 from transformers import AutoTokenizer, AutoModelForCausalLM
+
+# bitsandbytes internal FutureWarning about PyTorch guard APIs — not actionable by users
+warnings.filterwarnings("ignore", category=FutureWarning, module="bitsandbytes")
 
 csv.field_size_limit(sys.maxsize)
 
@@ -58,10 +62,7 @@ def _print_load_plan(model_name_str, tokenizer_name_str, quantize_model, model_k
             bits = "8-bit"
         else:
             bits = "custom"
-        print(f"  Quantization: {bits} bitsandbytes (on-the-fly)")
-        print("  *** On-the-fly quantization can be very slow for large models.")
-        print("      For faster loading, consider a pre-quantized GPTQ or AWQ")
-        print("      variant from Hugging Face and set quantize_model=False.")
+        print(f"  Quantization: {bits} bitsandbytes (on-the-fly — weights quantized at load time)")
     else:
         print("  Quantization: none")
 
@@ -92,6 +93,8 @@ class Pleonast:
         self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name_str, **tok_kwargs)
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
+        # BPE tokenizers warn about this option being designed for WordPiece; suppress it
+        self.tokenizer.clean_up_tokenization_spaces = False
 
         if hf_token:
             model_kwargs["token"] = hf_token
