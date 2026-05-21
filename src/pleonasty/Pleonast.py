@@ -1,6 +1,7 @@
 import csv
 import sys
 import torch
+from pathlib import Path
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 csv.field_size_limit(sys.maxsize)
@@ -13,6 +14,62 @@ def make_safe_filename(s):
             return "_"
 
     return "".join(safe_char(c) for c in s).rstrip("_")
+
+
+def _print_load_plan(model_name_str, tokenizer_name_str, quantize_model, model_kwargs, hf_token):
+    """Print a human-readable summary of what is about to be loaded."""
+    sep = "─" * 56
+    print(sep)
+    print("Pleonast: preparing to load model")
+    print(f"  Model:       {model_name_str}")
+    if tokenizer_name_str != model_name_str:
+        print(f"  Tokenizer:   {tokenizer_name_str}")
+
+    # Architecture from config.json — fast, no weights loaded
+    try:
+        from transformers import AutoConfig
+        cfg_kwargs = {"token": hf_token} if hf_token else {}
+        cfg = AutoConfig.from_pretrained(model_name_str, **cfg_kwargs)
+        archs = getattr(cfg, "architectures", None)
+        if archs:
+            print(f"  Architecture: {archs[0]}")
+    except Exception:
+        pass
+
+    # Disk footprint from weight files
+    p = Path(model_name_str)
+    if p.is_dir():
+        st_files = list(p.rglob("*.safetensors"))
+        bin_files = list(p.rglob("*.bin"))
+        if st_files:
+            size_gb = sum(f.stat().st_size for f in st_files) / 1024 ** 3
+            print(f"  Weights on disk: {size_gb:.1f} GB (safetensors)")
+        elif bin_files:
+            size_gb = sum(f.stat().st_size for f in bin_files) / 1024 ** 3
+            print(f"  Weights on disk: {size_gb:.1f} GB (.bin)")
+            print("  Note: .bin weights load slower than safetensors.")
+
+    # Quantization
+    if "quantization_config" in model_kwargs:
+        qcfg = model_kwargs["quantization_config"]
+        if getattr(qcfg, "load_in_4bit", False):
+            bits = "4-bit"
+        elif getattr(qcfg, "load_in_8bit", False):
+            bits = "8-bit"
+        else:
+            bits = "custom"
+        print(f"  Quantization: {bits} bitsandbytes (on-the-fly)")
+        print("  *** On-the-fly quantization can be very slow for large models.")
+        print("      For faster loading, consider a pre-quantized GPTQ or AWQ")
+        print("      variant from Hugging Face and set quantize_model=False.")
+    else:
+        print("  Quantization: none")
+
+    dtype = model_kwargs.get("torch_dtype", "auto")
+    print(f"  torch_dtype:  {dtype}")
+    print(f"  device_map:   {model_kwargs.get('device_map', 'auto')}")
+    print(sep)
+    print("Loading weights — this may take several minutes for large models...")
 
 
 class Pleonast:
@@ -49,6 +106,14 @@ class Pleonast:
 
         model_kwargs.setdefault("device_map", "auto")
         model_kwargs.setdefault("torch_dtype", "auto")
+
+        _print_load_plan(
+            model_name_str=self.model_name_str,
+            tokenizer_name_str=self.tokenizer_name_str,
+            quantize_model=quantize_model,
+            model_kwargs=model_kwargs,
+            hf_token=hf_token,
+        )
 
         self.model = AutoModelForCausalLM.from_pretrained(self.model_name_str, **model_kwargs)
         self.model.eval()
