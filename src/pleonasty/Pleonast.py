@@ -1,7 +1,7 @@
 import csv
 import sys
-from transformers import AutoTokenizer
-from vllm import LLM
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 csv.field_size_limit(sys.maxsize)
 
@@ -23,39 +23,46 @@ class Pleonast:
                  tokenizer: str = None,
                  quantize_model: bool = True,
                  hf_token: str = None,
-                 **vllm_kwargs):
+                 **model_kwargs):
         self.model_name_str = model
         self.tokenizer_name_str = tokenizer if tokenizer else model
         self.hf_token = hf_token
 
-        if quantize_model:
-            # in-flight 4-bit via bitsandbytes
-            vllm_kwargs.setdefault("quantization", "bitsandbytes")
+        tok_kwargs = {}
+        if hf_token:
+            tok_kwargs["token"] = hf_token
+
+        self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name_str, **tok_kwargs)
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
 
         if hf_token:
-            vllm_kwargs.setdefault("hf_overrides", {})["use_auth_token"] = hf_token
+            model_kwargs["token"] = hf_token
 
-        llm_init_kwargs = {
-            "model": self.model_name_str,
-            "tokenizer": self.tokenizer_name_str,
-            **vllm_kwargs,               # <-- all other engine args
-        }
+        if quantize_model:
+            try:
+                from transformers import BitsAndBytesConfig
+                model_kwargs.setdefault("quantization_config", BitsAndBytesConfig(load_in_4bit=True))
+            except ImportError:
+                print("bitsandbytes not installed; skipping quantization. "
+                      "Install with: pip install bitsandbytes  or  pip install pleonasty[quantization]")
 
-        self.llm = LLM(**llm_init_kwargs)
-        
-        self.tokenizer = self.llm.get_tokenizer()
+        model_kwargs.setdefault("device_map", "auto")
+        model_kwargs.setdefault("torch_dtype", "auto")
+
+        self.model = AutoModelForCausalLM.from_pretrained(self.model_name_str, **model_kwargs)
+        self.model.eval()
 
         print("Pleonast is initialized.")
-    
+
     def chunk_by_tokens(self, text: str, chunk_size: int):
-        # Ask for the offsets of each token in the original text
         enc = self.tokenizer(
             text,
             add_special_tokens=False,
             return_offsets_mapping=True,
         )
         ids     = enc["input_ids"]
-        offsets = enc["offset_mapping"]  # list of (start_char, end_char)
+        offsets = enc["offset_mapping"]
 
         out = []
         for i in range(0, len(ids), chunk_size):

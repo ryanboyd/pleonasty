@@ -1,41 +1,48 @@
 from .LLM_Result import LLM_Result
 from time import time
-from vllm import SamplingParams
+import torch
 
 def analyze_text(self,
                  input_texts: list,
-                 **sampling_params) -> list[LLM_Result]:
+                 **generation_kwargs) -> list:
 
-    start_time = time()
+    # vllm used "max_tokens"; transformers uses "max_new_tokens"
+    if "max_tokens" in generation_kwargs:
+        generation_kwargs.setdefault("max_new_tokens", generation_kwargs.pop("max_tokens"))
 
-    # 1) Build one chat-conversation per input
-    conversations = []
-    for input_text in input_texts:
-        # your _buildPrompt can still be used to shape the user turn
-        conversation_history = self._buildPrompt(input_text)
-        conversations.append(conversation_history)
+    generation_kwargs.setdefault("max_new_tokens", 512)
 
-    # 2) Wrap the sampling params
-    sampling = SamplingParams(**sampling_params)
+    # Sampling must be explicitly enabled when temperature / top_k / top_p are set
+    if {"temperature", "top_k", "top_p"} & set(generation_kwargs):
+        generation_kwargs.setdefault("do_sample", True)
 
-    # 3) Run vLLM's chat API
-    outputs = self.llm.chat(
-        messages=conversations,
-        add_generation_prompt=True,
-        use_tqdm=False,
-        sampling_params=sampling
-    )
-    stop_time = time()
-
-    # 4) Collect just the assistant's reply
     llm_results = []
-    for input_text, output in zip(input_texts, outputs):
-        reply = output.outputs[0].text.strip()
+
+    for input_text in input_texts:
+        start_time = time()
+
+        conversation = self._buildPrompt(input_text)
+
+        formatted = self.tokenizer.apply_chat_template(
+            conversation, tokenize=False, add_generation_prompt=True
+        )
+
+        inputs = self.tokenizer(formatted, return_tensors="pt").to(self.model.device)
+        input_len = inputs["input_ids"].shape[1]
+
+        with torch.no_grad():
+            output_ids = self.model.generate(**inputs, **generation_kwargs)
+
+        new_tokens = output_ids[0][input_len:]
+        reply = self.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+
+        stop_time = time()
+
         llm_results.append(
             LLM_Result(
                 input_text=input_text,
                 response_text=reply,
-                model_output=output,
+                model_output=output_ids,
                 start_time=start_time,
                 stop_time=stop_time
             )
