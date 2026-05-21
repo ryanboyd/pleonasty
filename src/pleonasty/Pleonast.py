@@ -33,6 +33,8 @@ def _print_load_plan(model_name_str, tokenizer_name_str, quantize_model, model_k
     try:
         from transformers import AutoConfig
         cfg_kwargs = {"token": hf_token} if hf_token else {}
+        if "trust_remote_code" in model_kwargs:
+            cfg_kwargs["trust_remote_code"] = model_kwargs["trust_remote_code"]
         cfg = AutoConfig.from_pretrained(model_name_str, **cfg_kwargs)
         archs = getattr(cfg, "architectures", None)
         if archs:
@@ -89,6 +91,8 @@ class Pleonast:
         tok_kwargs = {}
         if hf_token:
             tok_kwargs["token"] = hf_token
+        if "trust_remote_code" in model_kwargs:
+            tok_kwargs["trust_remote_code"] = model_kwargs["trust_remote_code"]
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name_str, **tok_kwargs)
         if self.tokenizer.pad_token is None:
