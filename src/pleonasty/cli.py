@@ -12,13 +12,21 @@ def _build_parser() -> argparse.ArgumentParser:
     # ── shared helpers ──────────────────────────────────────────────────────────
     def _model_args(p: argparse.ArgumentParser) -> None:
         p.add_argument("--model", required=True,
-                       help="HuggingFace model ID or local path.")
+                       help="HuggingFace model ID, local path, or API model name.")
+        p.add_argument("--backend", default="transformers",
+                       choices=["transformers", "api"],
+                       help="Inference backend (default: transformers).")
+        p.add_argument("--api-base", default=None,
+                       help="Base URL for OpenAI-compatible API "
+                            "(default: http://localhost:11434/v1 for Ollama).")
+        p.add_argument("--api-key", default=None,
+                       help="API key (default: 'ollama' for local Ollama).")
         p.add_argument("--tokenizer", default=None,
-                       help="Tokenizer ID or path (defaults to --model).")
+                       help="Tokenizer ID or path (transformers backend only).")
         p.add_argument("--hf-token", default=None,
                        help="HuggingFace access token for gated models.")
         p.add_argument("--no-quantize", action="store_true",
-                       help="Disable 4-bit bitsandbytes quantization.")
+                       help="Disable 4-bit bitsandbytes quantization (transformers backend only).")
         p.add_argument("--device-map", default="auto",
                        help="Device map for from_pretrained (default: auto).")
         p.add_argument("--torch-dtype", default=None,
@@ -125,38 +133,45 @@ def main() -> None:
         )
         return
 
-    # ── build model_kwargs ─────────────────────────────────────────────────────
-    model_kwargs: dict = {"device_map": args.device_map}
-
-    if args.torch_dtype:
-        import torch
-        dtype_map = {
-            "float16":  torch.float16,
-            "bfloat16": torch.bfloat16,
-            "float32":  torch.float32,
-            "auto":     "auto",
-        }
-        model_kwargs["torch_dtype"] = dtype_map[args.torch_dtype]
-
-    if args.trust_remote_code:
-        model_kwargs["trust_remote_code"] = True
-
-    if args.attn_implementation:
-        model_kwargs["attn_implementation"] = args.attn_implementation
-
     # ── load model ─────────────────────────────────────────────────────────────
     try:
         from pleonasty import Pleonast
     except ImportError:
         from src.pleonasty import Pleonast
 
-    pleonast = Pleonast(
-        model=args.model,
-        tokenizer=args.tokenizer,
-        quantize_model=not args.no_quantize,
-        hf_token=args.hf_token,
-        **model_kwargs,
-    )
+    if args.backend == "api":
+        pleonast = Pleonast(
+            model=args.model,
+            backend="api",
+            api_base=args.api_base,
+            api_key=args.api_key,
+        )
+    else:
+        model_kwargs: dict = {"device_map": args.device_map}
+
+        if args.torch_dtype:
+            import torch
+            dtype_map = {
+                "float16":  torch.float16,
+                "bfloat16": torch.bfloat16,
+                "float32":  torch.float32,
+                "auto":     "auto",
+            }
+            model_kwargs["torch_dtype"] = dtype_map[args.torch_dtype]
+
+        if args.trust_remote_code:
+            model_kwargs["trust_remote_code"] = True
+
+        if args.attn_implementation:
+            model_kwargs["attn_implementation"] = args.attn_implementation
+
+        pleonast = Pleonast(
+            model=args.model,
+            tokenizer=args.tokenizer,
+            quantize_model=not args.no_quantize,
+            hf_token=args.hf_token,
+            **model_kwargs,
+        )
 
     # ── dispatch ───────────────────────────────────────────────────────────────
     if args.command == "annotate":

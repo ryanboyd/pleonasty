@@ -8,6 +8,8 @@ __all__ = ['parse_json_output']
 try:
     from .Pleonast import Pleonast
     from ._buildPrompt import _buildPrompt
+    from ._format_conversation import _format_conversation
+    from ._api_generate import _api_generate
     from .analyze_text import analyze_text
     from .batch_analyze_to_csv import batch_analyze_to_csv
     from .batch_analyze_csv_to_csv import batch_analyze_csv_to_csv
@@ -18,6 +20,8 @@ try:
 
     # Attach methods to class
     Pleonast._buildPrompt = _buildPrompt
+    Pleonast._format_conversation = _format_conversation
+    Pleonast._api_generate = _api_generate
     Pleonast.analyze_text = analyze_text
     Pleonast.batch_analyze_to_csv = batch_analyze_to_csv
     Pleonast.batch_analyze_csv_to_csv = batch_analyze_csv_to_csv

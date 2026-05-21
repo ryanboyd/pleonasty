@@ -83,10 +83,35 @@ class Pleonast:
                  tokenizer: str = None,
                  quantize_model: bool = True,
                  hf_token: str = None,
+                 prompt_formatter=None,
+                 backend: str = "transformers",
+                 api_base: str = None,
+                 api_key: str = None,
                  **model_kwargs):
         self.model_name_str = model
         self.tokenizer_name_str = tokenizer if tokenizer else model
         self.hf_token = hf_token
+        self._prompt_formatter = prompt_formatter
+        self._backend = backend
+
+        if backend == "api":
+            try:
+                from openai import OpenAI
+            except ImportError:
+                raise ImportError(
+                    "openai package required for the API backend. "
+                    "Install with: pip install openai  or  pip install 'pleonasty[api]'"
+                )
+            self._api_model = model
+            self._api_client = OpenAI(
+                api_key=api_key or "ollama",
+                base_url=api_base or "http://localhost:11434/v1",
+            )
+            self.tokenizer = None
+            self.model = None
+            base = api_base or "http://localhost:11434/v1"
+            print(f"Pleonast initialized (API backend — {base}, model: {model}).")
+            return
 
         tok_kwargs = {}
         if hf_token:
@@ -124,6 +149,14 @@ class Pleonast:
 
         self.model = AutoModelForCausalLM.from_pretrained(self.model_name_str, **model_kwargs)
         self.model.eval()
+
+        if self._prompt_formatter is None and self.tokenizer.chat_template is None:
+            print(
+                "Warning: this model has no Jinja chat template. "
+                "Prompts will be formatted as plain 'User: / Assistant:' text. "
+                "For correct results, pass prompt_formatter=<callable> that converts "
+                "a message list to a string (e.g. the model's own encoding script)."
+            )
 
         print("Pleonast is initialized.")
 
