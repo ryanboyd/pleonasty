@@ -285,8 +285,44 @@ Generation parameters are passed as keyword arguments to `batch_analyze_csv_to_c
 | `top_p` | 0.9 | Nucleus sampling probability threshold |
 | `repetition_penalty` | 1.0 | Values > 1 penalise repeated phrases (transformers backend only) |
 | `do_sample` | auto | Automatically enabled when temperature/top_k/top_p are set (transformers backend only) |
+| `batch_size` | 1 | Number of texts processed per `model.generate()` call — see below (transformers backend only) |
 
 `max_tokens` is accepted as an alias for `max_new_tokens` for backwards compatibility.
+
+### Batched inference (`batch_size`)
+
+By default pleonasty processes one text at a time. Setting `batch_size > 1` sends multiple texts to the GPU in a single `model.generate()` call, which can be 2–4× faster because the GPU is doing genuine parallel work rather than sitting mostly idle between calls.
+
+```python
+ple.batch_analyze_csv_to_csv(
+    input_csv="data/texts.csv",
+    text_columns_to_process=["post_text"],
+    output_csv="data/annotated.csv",
+    max_new_tokens=512,
+    batch_size=8,   # process 8 texts at once
+)
+```
+
+**Cross-text independence is guaranteed.** Each sequence in a batch is protected by its own attention mask — tokens from one text are completely invisible to tokens in another. Batched results are mathematically identical to processing each text separately (with greedy decoding; stochastic sampling will produce different draws from the same distribution, not semantic bleed-through).
+
+**VRAM and automatic backoff.** Larger batches use more VRAM, scaling roughly with `batch_size × (input_tokens + max_new_tokens)`. If a batch exceeds available VRAM, pleonasty catches the out-of-memory error, halves the batch size, prints a message, and retries — permanently using the lower size for the rest of the job. This means:
+
+- A slightly-too-large `batch_size` self-corrects within the first one or two batches and then runs stably.
+- If even `batch_size=1` causes OOM, pleonasty raises a clear error rather than looping.
+- You never need to babysit the job: set a generous `batch_size` and let it find its own level.
+
+A good starting point on a 2×A6000 (96 GB VRAM) with an 8B model is `batch_size=16`; for a 70B model quantized to 4-bit, start around `batch_size=4`. Tune upward until you see the backoff message, then drop back one step.
+
+From the CLI:
+
+```bash
+pleonasty annotate \
+  --model meta-llama/Llama-3.1-8B-Instruct \
+  --batch-size 16 \
+  --input-csv data/texts.csv \
+  --text-columns post_text \
+  --output-csv data/annotated.csv
+```
 
 ## API Reference
 

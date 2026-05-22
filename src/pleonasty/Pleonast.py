@@ -122,6 +122,7 @@ class Pleonast:
         self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name_str, **tok_kwargs)
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.tokenizer.padding_side = "left"  # required for decoder-only batched generation
         # BPE tokenizers warn about this option being designed for WordPiece; suppress it
         self.tokenizer.clean_up_tokenization_spaces = False
 

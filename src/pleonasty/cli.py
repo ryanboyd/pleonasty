@@ -48,6 +48,12 @@ def _build_parser() -> argparse.ArgumentParser:
                        help="Top-p nucleus sampling (default: 0.9).")
         p.add_argument("--repetition-penalty", type=float, default=1.0,
                        help="Repetition penalty (default: 1.0 = no penalty).")
+        p.add_argument("--batch-size", type=int, default=1,
+                       help="Number of texts to process in one model.generate() call "
+                            "(default: 1). Higher values are faster but use more VRAM. "
+                            "If a batch causes OOM, the size is halved automatically "
+                            "and held at the lower value for the rest of the job. "
+                            "Transformers backend only.")
 
     # ── annotate ───────────────────────────────────────────────────────────────
     ann = sub.add_parser("annotate",
@@ -197,6 +203,7 @@ def main() -> None:
             "top_k":              args.top_k,
             "top_p":              args.top_p,
             "repetition_penalty": args.repetition_penalty,
+            "batch_size":         args.batch_size,
         }
 
         pleonast.batch_analyze_csv_to_csv(

@@ -29,7 +29,7 @@ def chat_mode(self,
             inputs = self.tokenizer(formatted, return_tensors="pt").to(self.model.device)
             input_len = inputs["input_ids"].shape[1]
 
-            with torch.no_grad():
+            with torch.inference_mode():
                 output_ids = self.model.generate(
                     **inputs,
                     max_new_tokens=max_new_tokens,
