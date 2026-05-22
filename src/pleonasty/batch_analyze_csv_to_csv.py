@@ -125,33 +125,45 @@ def batch_analyze_csv_to_csv(self,
                 csvw.writerow(self.generate_csv_header(
                     metadata_headers=metadata_columns_to_retain))
 
-            for rowInProgress in tqdm(range(numRows)):
+            outer_bar  = tqdm(total=numRows, position=0, desc="Rows")
+            status_bar = tqdm(bar_format="  {desc}", position=1,
+                              leave=True, desc="—")
+            self._status_bar = status_bar
 
-                row_to_process = csvr.__next__()
+            try:
+                for rowInProgress in range(numRows):
 
-                if rowInProgress < start_at_row:
-                    continue
+                    row_to_process = csvr.__next__()
 
-                text_to_process = " ".join([row_to_process[i] for i in column_indices_to_process])
+                    if rowInProgress < start_at_row:
+                        outer_bar.update(1)
+                        continue
 
-                # do the actual generation. the result gets saves as a list of LLM_Result()
-                # to self.result for the Pleonast class
-                chunked_text = self.chunk_by_tokens(text=text_to_process,
-                                                    chunk_size=chunk_into_n_tokens)
+                    text_to_process = " ".join([row_to_process[i] for i in column_indices_to_process])
 
-                results = self.analyze_text(input_texts=chunked_text,
-                                            **sampling_params)
+                    chunked_text = self.chunk_by_tokens(text=text_to_process,
+                                                        chunk_size=chunk_into_n_tokens)
 
-                # prep the row output with metadata
-                meta_output = [row_to_process[i] for i in column_indices_for_metadata]
+                    self._batch_label = f"Row {rowInProgress + 1}/{numRows}"
 
-                # complete the row output by pulling the results data
-                for result in results:
-                    row_output = self.generate_csv_output_row(result=result,
-                                                              input_metadata=meta_output)
+                    results = self.analyze_text(input_texts=chunked_text,
+                                                **sampling_params)
 
-                    #write the output
-                    csvw.writerow(row_output)
+                    meta_output = [row_to_process[i] for i in column_indices_for_metadata]
+
+                    for result in results:
+                        row_output = self.generate_csv_output_row(result=result,
+                                                                  input_metadata=meta_output)
+                        csvw.writerow(row_output)
+
+                    outer_bar.update(1)
+
+            finally:
+                outer_bar.close()
+                status_bar.close()
+                for attr in ("_status_bar", "_batch_label"):
+                    if hasattr(self, attr):
+                        delattr(self, attr)
 
     print("Analysis complete.")
 
