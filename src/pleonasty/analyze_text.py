@@ -106,7 +106,7 @@ def analyze_text(self,
 
             # Show chunk progress when a single call spans multiple batches
             if n_batches > 1:
-                label = f"{batch_label} | Chunk {batch_num}/{n_batches}"
+                label = f"{batch_label} | Batch {batch_num}/{n_batches}"
             else:
                 label = batch_label
 
