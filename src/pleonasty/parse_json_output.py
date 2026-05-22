@@ -26,6 +26,22 @@ def _set_csv_limit():
 _set_csv_limit()
 
 
+def _split_reasoning(text: str, end_tag: str):
+    """Split text at the first occurrence of end_tag.
+
+    Returns (reasoning, response):
+      - reasoning: everything up to and including the tag (stripped), or None
+        if the tag is not found.
+      - response: everything after the tag (stripped), or the full text if the
+        tag is not found.
+    """
+    idx = text.find(end_tag)
+    if idx == -1:
+        return None, text
+    split = idx + len(end_tag)
+    return text[:split].strip(), text[split:].strip()
+
+
 def _extract_json_str(text: str) -> str:
     match = re.search(r'\{.*\}', text, flags=re.DOTALL)
     return match.group(0) if match else text
@@ -83,6 +99,8 @@ def parse_json_output(
     response_column: str = "LLM_Response",
     group_by=None,
     encoding: str = "utf-8-sig",
+    reasoning_end_tag: str = None,
+    reasoning_column: str = "LLM_Reasoning",
 ) -> str:
     """
     Parse JSON fields out of an LLM response column in a pleonasty output CSV
@@ -95,9 +113,8 @@ def parse_json_output(
         batch_analyze_csv_to_csv.
     json_fields : list[str], optional
         JSON keys to extract from each LLM response (case-insensitive).
-        If omitted, the keys are discovered automatically from the first
-        successfully parsed response and the union of all keys seen across
-        all rows is used.
+        If omitted, the keys are discovered automatically from the union of all
+        keys seen across all successfully parsed rows.
     output_csv : str, optional
         Where to write the result.  Defaults to <input_stem>_parsed.csv.
     response_column : str
@@ -116,6 +133,16 @@ def parse_json_output(
         were merged.
     encoding : str
         File encoding for both input and output (default: utf-8-sig).
+    reasoning_end_tag : str, optional
+        Closing tag that marks the end of a reasoning/thinking block, e.g.
+        ``"</think>"`` for DeepSeek-R1 or QwQ models.  When set, everything up
+        to and including this tag is extracted into a separate column
+        (``reasoning_column``) and JSON is parsed only from the text that
+        follows.  Rows where the tag is not found are parsed in full as usual.
+    reasoning_column : str
+        Name of the output column that receives the extracted reasoning text
+        (default: LLM_Reasoning).  Only added to the output when
+        ``reasoning_end_tag`` is supplied.
 
     Returns
     -------
@@ -150,11 +177,24 @@ def parse_json_output(
                 raise ValueError(f"group_by column(s) not found: {missing}")
         rows = list(reader)
 
-    # ── parse JSON from each row ───────────────────────────────────────────────
+    # ── split reasoning and parse JSON from each row ───────────────────────────
     parsed_dicts = []
+    reasoning_texts = []   # parallel list; None when reasoning_end_tag unset
     n_ok = n_fail = 0
+    n_reasoning_found = 0
+
     for row in rows:
-        d = _try_parse(row[response_column])
+        text = row[response_column]
+
+        if reasoning_end_tag:
+            reasoning, text = _split_reasoning(text, reasoning_end_tag)
+            reasoning_texts.append(reasoning)
+            if reasoning is not None:
+                n_reasoning_found += 1
+        else:
+            reasoning_texts.append(None)
+
+        d = _try_parse(text)
         if d is not None:
             n_ok += 1
         else:
@@ -163,6 +203,8 @@ def parse_json_output(
         parsed_dicts.append(d)
 
     print(f"JSON parsing: {n_ok} succeeded, {n_fail} failed.")
+    if reasoning_end_tag:
+        print(f"Reasoning blocks found: {n_reasoning_found}/{len(rows)} rows.")
 
     # ── discover fields if not supplied ────────────────────────────────────────
     if json_fields is None:
@@ -182,34 +224,45 @@ def parse_json_output(
         fields = [f.lower() for f in json_fields]
 
     # ── assemble output ────────────────────────────────────────────────────────
+    extra_cols = ([reasoning_column] if reasoning_end_tag else []) + fields
+
     if group_by:
         groups: dict = OrderedDict()
-        for row, pd_ in zip(rows, parsed_dicts):
+        for row, pd_, reasoning in zip(rows, parsed_dicts, reasoning_texts):
             key = tuple(row[c] for c in group_by)
             if key not in groups:
                 groups[key] = {
                     'meta': row,
                     'values': {f: [] for f in fields},
+                    'reasoning': [],
                     'count': 0,
                 }
             for f in fields:
                 groups[key]['values'][f].append(pd_.get(f))
+            if reasoning_end_tag:
+                groups[key]['reasoning'].append(reasoning)
             groups[key]['count'] += 1
 
-        out_fieldnames = in_fields + fields + ['num_chunks']
+        out_fieldnames = in_fields + extra_cols + ['num_chunks']
         out_rows = []
         for grp in groups.values():
             agg = _aggregate(grp['values'], fields)
             out_row = dict(grp['meta'])
+            if reasoning_end_tag:
+                out_row[reasoning_column] = '\n'.join(
+                    r for r in grp['reasoning'] if r
+                )
             for f in fields:
                 out_row[f] = agg.get(f)
             out_row['num_chunks'] = grp['count']
             out_rows.append(out_row)
     else:
-        out_fieldnames = in_fields + fields
+        out_fieldnames = in_fields + extra_cols
         out_rows = []
-        for row, pd_ in zip(rows, parsed_dicts):
+        for row, pd_, reasoning in zip(rows, parsed_dicts, reasoning_texts):
             out_row = dict(row)
+            if reasoning_end_tag:
+                out_row[reasoning_column] = reasoning or ""
             for f in fields:
                 out_row[f] = pd_.get(f)
             out_rows.append(out_row)

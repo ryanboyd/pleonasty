@@ -90,6 +90,14 @@ def _build_parser() -> argparse.ArgumentParser:
                      help="Column(s) to group rows by before aggregating chunks "
                           "(e.g. --group-by TextID).  When set, all rows with the "
                           "same key are merged into one output row.")
+    prs.add_argument("--reasoning-end-tag", default=None,
+                     help="Closing tag that marks the end of a reasoning block, "
+                          "e.g. '</think>' for DeepSeek-R1 / QwQ models. "
+                          "Everything up to this tag is extracted into its own column; "
+                          "JSON is parsed only from the text that follows.")
+    prs.add_argument("--reasoning-column", default="LLM_Reasoning",
+                     help="Output column name for extracted reasoning text "
+                          "(default: LLM_Reasoning).")
     prs.add_argument("--encoding", default="utf-8-sig",
                      help="File encoding (default: utf-8-sig).")
 
@@ -130,6 +138,8 @@ def main() -> None:
             response_column=args.response_column,
             group_by=args.group_by if args.group_by else None,
             encoding=args.encoding,
+            reasoning_end_tag=args.reasoning_end_tag,
+            reasoning_column=args.reasoning_column,
         )
         return
 
