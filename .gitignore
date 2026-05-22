@@ -157,3 +157,4 @@ testdata/
 context_examples_other/
 *.bat
 *private*.ipynb
+.claude/
